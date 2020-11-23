@@ -1,1 +1,1 @@
-# curling-ice-sensprs
+# curling-ice-sensors
