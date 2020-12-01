@@ -1,4 +1,5 @@
 import configparser
+import json
 import sys
 import time
 
@@ -7,8 +8,6 @@ import datadog
 
 from config_manager import load_settings
 
-DATADOG_API_KEY = '565893d17f4370e4474975a941c5a468'
-DATADOG_API_URL = 'https://api.datadoghq.com/api/v1/series?api_key=' + DATADOG_API_KEY
 METRIC_TEMPERATURE = 'sfbacc.temperature'
 METRIC_HUMIDITY = 'sfbacc.humidity'
 
@@ -16,15 +15,18 @@ DHT_SENSOR = Adafruit_DHT.DHT22
 DHT_PIN1 = 4
 DHT_PIN2 = 9
 
-datadog.initialize(api_key=DATADOG_API_KEY)
+datadog.initialize()
 
 
 def send_metric(metric, value, tags: dict):
-    datadog.api.Metric.send(
+    response = datadog.api.Metric.send(
         metric=metric,
         points=value,
         tags=list(map(lambda kv: f'{kv[0]}:{kv[1]}', tags.items()))
     )
+
+    if response['status'] != 'ok':
+        print('Error: ' + json.dumps(response))
 
 
 def measure_and_send(settings: configparser.ConfigParser):

@@ -53,8 +53,8 @@ Modify values for the particular sensor you're all set.
 
 ## Running the code & Sending data to Datadog
 
-Once the setup is complete and settings are configured run the same script again to start sending data to Datadog!
+Once the setup is complete and settings are configured run the same script again to start sending data to Datadog! Provide a DataDog API key in the environment as either `DATADOG_API_KEY` or `DD_API_KEY`:
 
 ```shell script
-$ python collect_measurements.py
+$ DATADOG_API_KEY=<your key here> python collect_measurements.py
 ```
