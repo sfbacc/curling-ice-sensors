@@ -23,9 +23,9 @@ def test_measure_and_send(dd_send: mock.Mock):
     assert send_metric.call_args_list[0].args[2]['test_key'] == 'test_value'
 
 
-
 @mock.patch('datadog.api.Metric.send')
 def test_datadog_tags(dd_send: mock.Mock):
+    dd_send.return_value = {'status': 'ok'}
     config = {
         'sensor_1': {'test_key': 'test_value'},
         'sensor_2': {'test_key': 'test_value'}

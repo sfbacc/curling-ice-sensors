@@ -5,6 +5,8 @@ import time
 
 import Adafruit_DHT
 import datadog
+from datadog.api.exceptions import DatadogException
+from retry import retry
 
 from config_manager import load_settings
 
@@ -18,6 +20,7 @@ DHT_PIN2 = 9
 datadog.initialize()
 
 
+@retry(exceptions=[DatadogException], tries=3)
 def send_metric(metric, value, tags: dict):
     response = datadog.api.Metric.send(
         metric=metric,
