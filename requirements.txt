@@ -1,5 +1,6 @@
 Adafruit_DHT==1.4.0
 datadog==0.39.0
+meteocalc==1.1.0
 mock==4.0.2
 pytest==6.1.2
 retry==0.9.2
