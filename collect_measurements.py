@@ -4,6 +4,7 @@ import json
 import re
 import sys
 import time
+import functools
 from typing import Dict, List
 
 import Adafruit_DHT
@@ -37,6 +38,7 @@ def _get_id_from_device_path(device_path):
   return found
 
 
+@functools.lru_cache()
 def _find_all_devices():
   # /sys/bus/w1/devices/28-0301a2791250/w1_slave
   device_paths = []
