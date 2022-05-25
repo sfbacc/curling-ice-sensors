@@ -153,6 +153,17 @@ def measure_and_send(settings: configparser.ConfigParser):
   # send_metric(METRIC_DEWPOINT, dewpoint_6, dict(settings['sensor_6'].items()))
 
 
+def _prepare(settings):
+  devices = _find_all_devices()
+  for dp in devices:
+    device_id = _get_id_from_device_path(dp)
+    if device_id in settings:
+      found = 'FOUND'
+    else:
+      # TODO: Do something loud here
+      found = '... not found'
+    print('Found device: ' + dp + ' ' + found)
+
 def main():
   try:
     settings = load_settings()
@@ -162,6 +173,8 @@ def main():
   except ValueError as e:
     print('Error: ' + str(e))
     sys.exit(1)
+
+  _prepare(settings)
 
   while True:
     measure_and_send(settings)
