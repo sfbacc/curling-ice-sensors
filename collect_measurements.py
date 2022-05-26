@@ -1,16 +1,17 @@
-import configparser
+import datetime
+import functools
 import glob
 import json
 import re
 import sys
 import time
-import functools
-from typing import Dict, List
+from configparser import ConfigParser
 
 import Adafruit_DHT
 import datadog
 from meteocalc import dew_point
 
+from config_manager import load_local
 from config_manager import load_settings
 
 datadog.initialize()
@@ -48,32 +49,13 @@ def _find_all_devices():
   return device_paths
 
 
-def good_value(h_value: int, t_value: int, history_data: Dict[str, List[int]]):
+def good_value(h_value: int, t_value: int):
   if not h_value and t_value is None:
     return False
 
-  # check for any data spike by comparing against running average
   if (10 >= h_value or h_value >= 90) or (-10 >= t_value or t_value >= 40):
     return False
 
-  # check if temp and humid are in reasonable range
-  if len(history_data['temp']) < 10:
-    # build list at start
-    history_data['humid'].append(h_value)
-    history_data['temp'].append(t_value)
-    return False
-
-  t_ave = sum(history_data['temp']) / len(history_data['temp'])
-  h_ave = sum(history_data['humid']) / len(history_data['humid'])
-
-  # check for spike in data
-  if abs(t_ave - t_value) >= 2 or abs(h_ave - h_value) >= 2:
-    return False
-
-  history_data['temp'].pop(0)
-  history_data['temp'].append(t_value)
-  history_data['humid'].pop(0)
-  history_data['humid'].append(h_value)
   return True
 
 
@@ -93,16 +75,10 @@ def read_DS18B20_temp(sensor_name):
   return
 
 
-def read_DHT22_temp_hum(list_name, sensor_name):
+def read_DHT22_temp_hum(sensor_name):
   humidity, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, sensor_name)
-  if good_value(humidity, temperature, list_name) is True:
-    humidity = round(humidity, 5)
-    temperature = round(temperature, 5)
-    dewpoint = round(dew_point(temperature, humidity), 5)
-    return humidity, temperature, dewpoint
-  else:
-    print('bad', humidity, temperature)
-    return None, None, None
+  dewpoint = dew_point(temperature, humidity)
+  return round(humidity, 5), round(temperature, 5), round(dewpoint, 5)
 
 
 def send_metric(metric, value, tags: dict):
@@ -118,41 +94,35 @@ def send_metric(metric, value, tags: dict):
       print('Error: ' + json.dumps(response))
 
 
-def measure_and_send(settings: configparser.ConfigParser):
+def measure_and_send(settings: ConfigParser, local: ConfigParser):
   devices = _find_all_devices()
 
   for device_path in devices:
     device_id = _get_id_from_device_path(device_path)
     temperature = read_DS18B20_temp(device_path)
-    send_metric(METRIC_TEMPERATURE, temperature, settings[device_id])
+    tags = dict(settings[device_id].items())
+    offset = tags.pop('offset')
+    temperature += offset
+    send_metric(METRIC_TEMPERATURE, temperature, tags)
 
-    # TODO: Next Steps: Settings file should include the type of sensor that
-    #  this is. Find if this is a temperature or a humidity sensor from settings
+  for sensor in local:
+    if sensor == 'DEFAULT':
+      continue
+    tags = dict(local[sensor].items())
+    pin = int(tags.pop('pin_id'))
 
-  # humidity5, temperature5, dewpoint5 = read_DHT22_temp_hum(temperature_5_list, SENSOR_5_ID)
+    humidity, temperature, dewpoint = read_DHT22_temp_hum(pin)
+    if not good_value(humidity, temperature):
+      continue
 
-  # print values collected
-  # full_datetime = datetime.datetime.now().strftime('%m %d %Y %H:%M:%S')
-  # print('\n', full_datetime,)
-  # print('ice_temp: ', temperature1, temperature2, temperature3, temperature4)
-  # print('airtemp: ', temperature5, temperature6)
-  # print('dewpoint: ', dewpoint5, dewpoint6)
-  # print('humidity: ', humidity5, humidity6)
+    # print values collected
+    full_datetime = datetime.datetime.now().strftime('%m %d %Y %H:%M:%S')
+    print('\n', full_datetime, )
+    print('airtemp: ', temperature)
+    print('humidity: ', humidity)
+    print('dewpoint: ', dewpoint)
 
-  # send values to DataDog
-  # send_metric(METRIC_TEMPERATURE, temperature2,
-  #             dict(settings['sensor_2'].items()))
-  # send_metric(METRIC_TEMPERATURE, temperature3,
-  #             dict(settings['sensor_3'].items()))
-  # send_metric(METRIC_TEMPERATURE, temperature4,
-  #             dict(settings['sensor_4'].items()))
-  # send_metric(METRIC_TEMPERATURE, temperature15,
-  #             dict(settings['sensor_15'].items()))
-  # send_metric(METRIC_HUMIDITY, humidity5, dict(settings['sensor_5'].items()))
-  # # send_metric(METRIC_DEWPOINT, dewpoint_5, dict(settings['sensor_5'].items()))
-  # send_metric(METRIC_TEMPERATURE, temperature6, dict(settings['sensor_6'].items()))
-  # send_metric(METRIC_HUMIDITY, humidity6, dict(settings['sensor_6'].items()))
-  # send_metric(METRIC_DEWPOINT, dewpoint_6, dict(settings['sensor_6'].items()))
+    send_metric(METRIC_HUMIDITY, humidity, tags)
 
 
 def _prepare(settings):
@@ -166,20 +136,19 @@ def _prepare(settings):
       found = '... not found'
     print('Found device: ' + dp + ' ' + found)
 
+
 def main():
+  settings = load_settings()
   try:
-    settings = load_settings()
+    local = load_local()
   except FileNotFoundError:
-    print('Change the settings file and rerun this script.')
+    print('Copy "local_template.ini" to "local.ini" and set the values there')
     sys.exit(2)
-  except ValueError as e:
-    print('Error: ' + str(e))
-    sys.exit(1)
 
   _prepare(settings)
 
   while True:
-    measure_and_send(settings)
+    measure_and_send(settings, local)
     time.sleep(10)
 
 
