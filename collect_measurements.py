@@ -77,6 +77,8 @@ def read_DS18B20_temp(sensor_name):
 
 def read_DHT22_temp_hum(sensor_name):
   humidity, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, sensor_name)
+  if not good_value(humidity, temperature):
+    return None, None, None
   dewpoint = dew_point(temperature, humidity)
   return round(humidity, 5), round(temperature, 5), round(dewpoint, 5)
 
@@ -108,21 +110,22 @@ def measure_and_send(settings: ConfigParser, local: ConfigParser):
   for sensor in local:
     if sensor == 'DEFAULT':
       continue
+    print('Reading DHT from ' + sensor)
     tags = dict(local[sensor].items())
     pin = int(tags.pop('pin_id'))
 
     humidity, temperature, dewpoint = read_DHT22_temp_hum(pin)
-    if not good_value(humidity, temperature):
+    if None in (humidity, temperature, dewpoint):
+      print('Bad values')
       continue
 
     # print values collected
     full_datetime = datetime.datetime.now().strftime('%m %d %Y %H:%M:%S')
-    print('\n', full_datetime, )
-    print('airtemp: ', temperature)
-    print('humidity: ', humidity)
-    print('dewpoint: ', dewpoint)
+    print(full_datetime, 'T/H/D', (temperature, humidity, dewpoint))
 
+    send_metric(METRIC_TEMPERATURE, temperature, tags)
     send_metric(METRIC_HUMIDITY, humidity, tags)
+    send_metric(METRIC_DEWPOINT, dewpoint, tags)
 
 
 def _prepare(settings):
