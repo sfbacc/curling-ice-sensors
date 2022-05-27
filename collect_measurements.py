@@ -104,7 +104,7 @@ def measure_and_send(settings: ConfigParser, local: ConfigParser):
     temperature = read_DS18B20_temp(device_path)
     tags = dict(settings[device_id].items())
     offset = float(tags.pop('offset'))
-    temperature += offset
+    temperature -= offset
     send_metric(METRIC_TEMPERATURE, temperature, tags)
 
   for sensor in local:
