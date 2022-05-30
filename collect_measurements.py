@@ -5,16 +5,16 @@ import json
 import re
 import sys
 import time
-from configparser import ConfigParser
-
 import Adafruit_DHT
 import datadog
+
+from configparser import ConfigParser
+from retry import retry
+from datadog.api.exceptions import DatadogException
 from meteocalc import dew_point
 
 from config_manager import load_local
 from config_manager import load_settings
-
-datadog.initialize()
 
 SENSOR_PATH = '/sys/bus/w1/devices'
 SENSOR_FILE = '/w1_slave'
@@ -23,10 +23,8 @@ METRIC_TEMPERATURE = 'sfbacc.temperature'
 METRIC_HUMIDITY = 'sfbacc.humidity'
 METRIC_DEWPOINT = 'sfbacc.dewpoint'
 DHT_SENSOR = Adafruit_DHT.DHT22
-SENSOR_5_ID = 4
-SENSOR_6_ID = 22
-temperature_5_list = {'temp': [], 'humid': []}
-temperature_6_list = {'temp': [], 'humid': []}
+
+datadog.initialize()
 
 
 def _get_id_from_device_path(device_path):
@@ -83,17 +81,20 @@ def read_DHT22_temp_hum(sensor_name):
   return round(humidity, 5), round(temperature, 5), round(dewpoint, 5)
 
 
+@retry(exceptions=[DatadogException], tries=3)
 def send_metric(metric, value, tags: dict):
-  if value is not None:
-    response = datadog.api.Metric.send(
-        metric=metric,
-        points=value,
-        tags=list(map(lambda kv: f'{kv[0]}:{kv[1]}', tags.items()))
-    )
+  if value is None:
+    return
 
-    if response['status'] != 'ok':
-      print(response)
-      print('Error: ' + json.dumps(response))
+  response = datadog.api.Metric.send(
+    metric=metric,
+    points=value,
+    tags=list(map(lambda kv: f'{kv[0]}:{kv[1]}', tags.items()))
+  )
+  if response['status'] != 'ok':
+    print(response)
+    print('Error: ' + json.dumps(response))
+
 
 
 def measure_and_send(settings: ConfigParser, local: ConfigParser):
