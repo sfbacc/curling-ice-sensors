@@ -1,0 +1,13 @@
+[Unit]
+Description=DataDog metrics from ice sensors
+
+[Service]
+WorkingDirectory=/home/pi/curling-ice-sensors
+Type=simple
+Restart=always
+RestartSec=1
+User=pi
+ExecStart=/usr/bin/env bash ../run_ice_sensors.sh
+
+[Install]
+WantedBy=multi-user.target
