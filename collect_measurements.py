@@ -105,6 +105,7 @@ def measure_and_send(settings: ConfigParser, local: ConfigParser):
     temperature = read_DS18B20_temp(device_path)
     tags = dict(settings[device_id].items())
     offset = float(tags.pop('offset'))
+    tags['sensor_id'] = device_id
     temperature -= offset
     send_metric(METRIC_TEMPERATURE, temperature, tags)
 
@@ -114,6 +115,7 @@ def measure_and_send(settings: ConfigParser, local: ConfigParser):
     print('Reading DHT from ' + sensor)
     tags = dict(local[sensor].items())
     pin = int(tags.pop('pin_id'))
+    tags['sensor_pin'] = pin
 
     humidity, temperature, dewpoint = read_DHT22_temp_hum(pin)
     if None in (humidity, temperature, dewpoint):
