@@ -78,3 +78,11 @@ Scanning /sys/bus/w1/devices/28-3c01b556cfa8/w1_slave ...
 $ sudo ./install.sh
 ```
 This will create a systemd daemon that runs in the background and restarts itself. The configuration for this is defined in `ice_sensors.service`
+
+## Reloading changes
+If you make changes to the code, commit these changes to the repo and then refresh the devices:
+
+```
+$ git pull
+$ sudo systemctl restart ice_sensors
+```
